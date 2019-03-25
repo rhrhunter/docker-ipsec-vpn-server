@@ -2,6 +2,7 @@
 
 # shutdown the server
 docker kill ipsec-vpn-server
+docker rm ipsec-vpn-server
 
 sudo ufw deny 500/udp
 sudo ufw deny 4500/udp
