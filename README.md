@@ -66,14 +66,6 @@ All the variables to this image are optional, which means you don't have to type
 
 ### Start the IPsec VPN server
 
-**Important:** First, load the IPsec `af_key` kernel module on the Docker host. This step is optional for Ubuntu and Debian.
-
-```
-sudo modprobe af_key
-```
-
-To ensure that this kernel module is loaded on boot, please refer to: [Ubuntu/Debian](https://help.ubuntu.com/community/Loadable_Modules), [CentOS 6](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/sec-persistent_module_loading), [CentOS 7](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Kernel_Administration_Guide/sec-Persistent_Module_Loading.html), [Fedora](https://docs.fedoraproject.org/en-US/fedora/f28/system-administrators-guide/kernel-module-driver-configuration/Working_with_Kernel_Modules/index.html#sec-Persistent_Module_Loading) and [CoreOS](https://coreos.com/os/docs/latest/other-settings.html).
-
 Create a new Docker container from this image (replace `./vpn.env` with your own `env` file):
 
 ```
@@ -83,7 +75,6 @@ docker run \
     --restart=always \
     -p 500:500/udp \
     -p 4500:4500/udp \
-    -v /lib/modules:/lib/modules:ro \
     -d --privileged \
     hwdsl2/ipsec-vpn-server
 ```
@@ -143,7 +134,9 @@ Enjoy your very own VPN!
 
 *Read this in other languages: [English](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/README.md#important-notes), [简体中文](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/README-zh.md#重要提示).*
 
-For **Windows users**, this [one-time registry change](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients.md#windows-error-809) is required if the VPN server and/or client is behind NAT (e.g. home router).
+**Windows users**: This [one-time registry change](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients.md#windows-error-809) is required if the VPN server and/or client is behind NAT (e.g. home router).
+
+**Android 6 and 7 users**: If you encounter connection issues, try [these steps](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients.md#android-6-and-7). You may set `sha2-truncbug=yes` (default is `no`) in `/etc/ipsec.conf` by adding `VPN_SHA2_TRUNCBUG=yes` to your `env` file, then re-create the Docker container.
 
 The same VPN account can be used by your multiple devices. However, due to an IPsec/L2TP limitation, if you wish to connect multiple devices simultaneously from behind the same NAT (e.g. home router), you must use only [IPsec/XAuth mode](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-xauth.md).
 
@@ -234,7 +227,6 @@ docker run \
     -p 500:500/udp \
     -p 4500:4500/udp \
     -v "$(pwd)/vpn.env:/opt/src/vpn.env:ro" \
-    -v /lib/modules:/lib/modules:ro \
     -d --privileged \
     hwdsl2/ipsec-vpn-server
 ```
@@ -253,7 +245,7 @@ Then run the following commands:
 apt-get update && apt-get -y install rsyslog
 service rsyslog restart
 service ipsec restart
-sed -i '/modprobe/a service rsyslog restart' /opt/src/run.sh
+sed -i '/pluto\.pid/a service rsyslog restart' /opt/src/run.sh
 exit
 ```
 
@@ -285,7 +277,7 @@ The ports that are exposed for this container to work are:
 
 ## License
 
-Copyright (C) 2016-2019 [Lin Song](https://www.linkedin.com/in/linsongui) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+Copyright (C) 2016-2020 [Lin Song](https://www.linkedin.com/in/linsongui) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 Based on [the work of Thomas Sarlandie](https://github.com/sarfata/voodooprivacy) (Copyright 2012)
 
 This work is licensed under the [Creative Commons Attribution-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-sa/3.0/)   

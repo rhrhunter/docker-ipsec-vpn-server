@@ -66,14 +66,6 @@ VPN_ADDL_PASSWORDS=additional_password_1 additional_password_2
 
 ### 运行 IPsec VPN 服务器
 
-**重要：** 首先，在 Docker 主机上加载 IPsec `af_key` 内核模块。该步骤在 Ubuntu 和 Debian 上为可选步骤。
-
-```
-sudo modprobe af_key
-```
-
-为保证这个内核模块在服务器启动时加载，请参见以下链接： [Ubuntu/Debian](https://help.ubuntu.com/community/Loadable_Modules), [CentOS 6](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/sec-persistent_module_loading), [CentOS 7](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Kernel_Administration_Guide/sec-Persistent_Module_Loading.html), [Fedora](https://docs.fedoraproject.org/en-US/fedora/f28/system-administrators-guide/kernel-module-driver-configuration/Working_with_Kernel_Modules/index.html#sec-Persistent_Module_Loading) 和 [CoreOS](https://coreos.com/os/docs/latest/other-settings.html)。
-
 使用本镜像创建一个新的 Docker 容器 （将 `./vpn.env` 替换为你自己的 `env` 文件）：
 
 ```
@@ -83,7 +75,6 @@ docker run \
     --restart=always \
     -p 500:500/udp \
     -p 4500:4500/udp \
-    -v /lib/modules:/lib/modules:ro \
     -d --privileged \
     hwdsl2/ipsec-vpn-server
 ```
@@ -143,7 +134,9 @@ docker exec -it ipsec-vpn-server ipsec whack --trafficstatus
 
 *其他语言版本: [English](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/README.md#important-notes), [简体中文](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/README-zh.md#重要提示).*
 
-**Windows 用户** 在首次连接之前需要[修改注册表](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-zh.md#windows-错误-809)，以解决 VPN 服务器 和/或 客户端与 NAT（比如家用路由器）的兼容问题。
+**Windows 用户** 在首次连接之前需要[修改注册表](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-zh.md#windows-错误-809)，以解决 VPN 服务器和/或客户端与 NAT（比如家用路由器）的兼容问题。
+
+**Android 6 和 7 用户**：如果你遇到连接问题，请尝试 [这些步骤](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-zh.md#android-6-和-7)。如需在 `/etc/ipsec.conf` 中设置 `sha2-truncbug=yes`（默认为 `no`），你可以在你的 `env` 文件中添加 `VPN_SHA2_TRUNCBUG=yes`，然后重新创建 Docker 容器。
 
 同一个 VPN 账户可以在你的多个设备上使用。但是由于 IPsec/L2TP 的局限性，如果需要同时连接在同一个 NAT （比如家用路由器）后面的多个设备到 VPN 服务器，你必须仅使用 [IPsec/XAuth 模式](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-xauth-zh.md)。
 
@@ -234,7 +227,6 @@ docker run \
     -p 500:500/udp \
     -p 4500:4500/udp \
     -v "$(pwd)/vpn.env:/opt/src/vpn.env:ro" \
-    -v /lib/modules:/lib/modules:ro \
     -d --privileged \
     hwdsl2/ipsec-vpn-server
 ```
@@ -253,7 +245,7 @@ docker exec -it ipsec-vpn-server env TERM=xterm bash -l
 apt-get update && apt-get -y install rsyslog
 service rsyslog restart
 service ipsec restart
-sed -i '/modprobe/a service rsyslog restart' /opt/src/run.sh
+sed -i '/pluto\.pid/a service rsyslog restart' /opt/src/run.sh
 exit
 ```
 
@@ -285,7 +277,7 @@ docker exec -it ipsec-vpn-server grep pluto /var/log/auth.log
 
 ## 授权协议
 
-版权所有 (C) 2016-2019 [Lin Song](https://www.linkedin.com/in/linsongui) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
+版权所有 (C) 2016-2020 [Lin Song](https://www.linkedin.com/in/linsongui) [![View my profile on LinkedIn](https://static.licdn.com/scds/common/u/img/webpromo/btn_viewmy_160x25.png)](https://www.linkedin.com/in/linsongui)   
 基于 [Thomas Sarlandie 的工作](https://github.com/sarfata/voodooprivacy) (Copyright 2012) (版权所有 2012)
 
 这个项目是以 [知识共享署名-相同方式共享3.0](http://creativecommons.org/licenses/by-sa/3.0/) 许可协议授权。   
