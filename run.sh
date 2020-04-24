@@ -334,48 +334,48 @@ iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
 # Update file attributes
 chmod 600 /etc/ipsec.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd
 
-cat <<EOF
+#cat <<EOF
 
-================================================
+#================================================
 
-IPsec VPN server is now ready for use!
+# IPsec VPN server is now ready for use!
 
-Connect to your new VPN with these details:
+# Connect to your new VPN with these details:
 
-Server IP: $PUBLIC_IP
-IPsec PSK: $VPN_IPSEC_PSK
-Username: $VPN_USER
-Password: $VPN_PASSWORD
-EOF
+# Server IP: $PUBLIC_IP
+# IPsec PSK: $VPN_IPSEC_PSK
+# Username: $VPN_USER
+# Password: $VPN_PASSWORD
+# EOF
 
-if [ -n "$VPN_ADDL_USERS" ] && [ -n "$VPN_ADDL_PASSWORDS" ]; then
-  count=1
-  addl_user=$(printf '%s' "$VPN_ADDL_USERS" | cut -d ' ' -f 1)
-  addl_password=$(printf '%s' "$VPN_ADDL_PASSWORDS" | cut -d ' ' -f 1)
-cat <<'EOF'
+# if [ -n "$VPN_ADDL_USERS" ] && [ -n "$VPN_ADDL_PASSWORDS" ]; then
+#   count=1
+#   addl_user=$(printf '%s' "$VPN_ADDL_USERS" | cut -d ' ' -f 1)
+#   addl_password=$(printf '%s' "$VPN_ADDL_PASSWORDS" | cut -d ' ' -f 1)
+# cat <<'EOF'
 
-Additional VPN users (username | password):
-EOF
-  while [ -n "$addl_user" ] && [ -n "$addl_password" ]; do
-cat <<EOF
-$addl_user | $addl_password
-EOF
-    count=$((count+1))
-    addl_user=$(printf '%s' "$VPN_ADDL_USERS" | cut -s -d ' ' -f "$count")
-    addl_password=$(printf '%s' "$VPN_ADDL_PASSWORDS" | cut -s -d ' ' -f "$count")
-  done
-fi
+# Additional VPN users (username | password):
+# EOF
+#   while [ -n "$addl_user" ] && [ -n "$addl_password" ]; do
+# cat <<EOF
+# $addl_user | $addl_password
+# EOF
+#     count=$((count+1))
+#     addl_user=$(printf '%s' "$VPN_ADDL_USERS" | cut -s -d ' ' -f "$count")
+#     addl_password=$(printf '%s' "$VPN_ADDL_PASSWORDS" | cut -s -d ' ' -f "$count")
+#   done
+# fi
 
-cat <<'EOF'
+# cat <<'EOF'
 
-Write these down. You'll need them to connect!
+# Write these down. You'll need them to connect!
 
-Important notes:   https://git.io/vpnnotes2
-Setup VPN clients: https://git.io/vpnclients
+# Important notes:   https://git.io/vpnnotes2
+# Setup VPN clients: https://git.io/vpnclients
 
-================================================
+# ================================================
 
-EOF
+# EOF
 
 # Start services
 mkdir -p /run/pluto /var/run/pluto /var/run/xl2tpd
