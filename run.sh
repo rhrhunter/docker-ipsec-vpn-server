@@ -3,7 +3,7 @@
 # Docker script to configure and start an IPsec VPN server
 #
 # DO NOT RUN THIS SCRIPT ON YOUR PC OR MAC! THIS IS ONLY MEANT TO BE RUN
-# IN A DOCKER CONTAINER!
+# IN A CONTAINER!
 #
 # This file is part of IPsec VPN Docker image, available at:
 # https://github.com/hwdsl2/docker-ipsec-vpn-server
@@ -30,16 +30,15 @@ check_ip() {
   printf '%s' "$1" | tr -d '\n' | grep -Eq "$IP_REGEX"
 }
 
-if [ ! -f "/.dockerenv" ] && [ ! -f "/run/.containerenv" ]; then
-  exiterr "This script ONLY runs in a Docker or Podman container."
+if [ ! -f "/.dockerenv" ] && [ ! -f "/run/.containerenv" ] && ! head -n 1 /proc/1/sched | grep -q '^run\.sh '; then
+  exiterr "This script ONLY runs in a container (e.g. Docker, Podman)."
 fi
 
 if ip link add dummy0 type dummy 2>&1 | grep -q "not permitted"; then
 cat 1>&2 <<'EOF'
 Error: This Docker image must be run in privileged mode.
-
-For detailed instructions, please visit:
-https://github.com/hwdsl2/docker-ipsec-vpn-server
+    For detailed instructions, please visit:
+    https://github.com/hwdsl2/docker-ipsec-vpn-server
 
 EOF
   exit 1
@@ -94,6 +93,21 @@ else
   VPN_ADDL_PASSWORDS=""
 fi
 
+if [ -n "$VPN_DNS_SRV1" ]; then
+  VPN_DNS_SRV1=$(nospaces "$VPN_DNS_SRV1")
+  VPN_DNS_SRV1=$(noquotes "$VPN_DNS_SRV1")
+fi
+
+if [ -n "$VPN_DNS_SRV2" ]; then
+  VPN_DNS_SRV2=$(nospaces "$VPN_DNS_SRV2")
+  VPN_DNS_SRV2=$(noquotes "$VPN_DNS_SRV2")
+fi
+
+if [ -n "$VPN_PUBLIC_IP" ]; then
+  VPN_PUBLIC_IP=$(nospaces "$VPN_PUBLIC_IP")
+  VPN_PUBLIC_IP=$(noquotes "$VPN_PUBLIC_IP")
+fi
+
 if [ -z "$VPN_IPSEC_PSK" ] || [ -z "$VPN_USER" ] || [ -z "$VPN_PASSWORD" ]; then
   exiterr "All VPN credentials must be specified. Edit your 'env' file and re-enter them."
 fi
@@ -114,17 +128,21 @@ fi
 
 # Check DNS servers and try to resolve hostnames to IPs
 if [ -n "$VPN_DNS_SRV1" ]; then
-  VPN_DNS_SRV1=$(nospaces "$VPN_DNS_SRV1")
-  VPN_DNS_SRV1=$(noquotes "$VPN_DNS_SRV1")
   check_ip "$VPN_DNS_SRV1" || VPN_DNS_SRV1=$(dig -t A -4 +short "$VPN_DNS_SRV1")
-  check_ip "$VPN_DNS_SRV1" || exiterr "Invalid DNS server 'VPN_DNS_SRV1'. Please check your 'env' file."
+  if ! check_ip "$VPN_DNS_SRV1"; then
+    echo >&2
+    echo "Error: Invalid DNS server. Check VPN_DNS_SRV1 in your 'env' file." >&2
+    VPN_DNS_SRV1=""
+  fi
 fi
 
 if [ -n "$VPN_DNS_SRV2" ]; then
-  VPN_DNS_SRV2=$(nospaces "$VPN_DNS_SRV2")
-  VPN_DNS_SRV2=$(noquotes "$VPN_DNS_SRV2")
   check_ip "$VPN_DNS_SRV2" || VPN_DNS_SRV2=$(dig -t A -4 +short "$VPN_DNS_SRV2")
-  check_ip "$VPN_DNS_SRV2" || exiterr "Invalid DNS server 'VPN_DNS_SRV2'. Please check your 'env' file."
+  if ! check_ip "$VPN_DNS_SRV2"; then
+    echo >&2
+    echo "Error: Invalid DNS server. Check VPN_DNS_SRV2 in your 'env' file." >&2
+    VPN_DNS_SRV2=""
+  fi
 fi
 
 echo
@@ -151,8 +169,18 @@ DNS_SRV2=${VPN_DNS_SRV2:-'8.8.4.4'}
 DNS_SRVS="\"$DNS_SRV1 $DNS_SRV2\""
 [ -n "$VPN_DNS_SRV1" ] && [ -z "$VPN_DNS_SRV2" ] && DNS_SRVS="$DNS_SRV1"
 
+if [ -n "$VPN_DNS_SRV1" ] && [ -n "$VPN_DNS_SRV2" ]; then
+  echo
+  echo "Setting DNS servers to $VPN_DNS_SRV1 and $VPN_DNS_SRV2..."
+elif [ -n "$VPN_DNS_SRV1" ]; then
+  echo
+  echo "Setting DNS server to $VPN_DNS_SRV1..."
+fi
+
 case $VPN_SHA2_TRUNCBUG in
   [yY][eE][sS])
+    echo
+    echo "Setting sha2-truncbug to yes in ipsec.conf..."
     SHA2_TRUNCBUG=yes
     ;;
   *)
@@ -160,7 +188,7 @@ case $VPN_SHA2_TRUNCBUG in
     ;;
 esac
 
-# Create IPsec (Libreswan) config
+# Create IPsec config
 cat > /etc/ipsec.conf <<EOF
 version 2.0
 
@@ -209,6 +237,8 @@ conn xauth-psk
   ike-frag=yes
   cisco-unity=yes
   also=shared
+
+include /etc/ipsec.d/*.conf
 EOF
 
 if uname -r | grep -qi 'coreos'; then
@@ -324,12 +354,26 @@ iptables -I FORWARD 3 -i ppp+ -o eth+ -j ACCEPT
 iptables -I FORWARD 4 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
 iptables -I FORWARD 5 -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -I FORWARD 6 -s "$XAUTH_NET" -o eth+ -j ACCEPT
-# Uncomment if you wish to disallow traffic between VPN clients themselves
+# Uncomment to disallow traffic between VPN clients
 # iptables -I FORWARD 2 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
 # iptables -I FORWARD 3 -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
 iptables -A FORWARD -j DROP
 iptables -t nat -I POSTROUTING -s "$XAUTH_NET" -o eth+ -m policy --dir out --pol none -j MASQUERADE
 iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
+
+case $VPN_ANDROID_MTU_FIX in
+  [yY][eE][sS])
+    echo
+    echo "Applying fix for Android MTU/MSS issues..."
+    iptables -t mangle -A FORWARD -m policy --pol ipsec --dir in \
+      -p tcp -m tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1361:1536 \
+      -j TCPMSS --set-mss 1360
+    iptables -t mangle -A FORWARD -m policy --pol ipsec --dir out \
+      -p tcp -m tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1361:1536 \
+      -j TCPMSS --set-mss 1360
+    echo 1 > /proc/sys/net/ipv4/ip_no_pmtu_disc
+    ;;
+esac
 
 # Update file attributes
 chmod 600 /etc/ipsec.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd
@@ -372,6 +416,7 @@ chmod 600 /etc/ipsec.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd
 
 # Important notes:   https://git.io/vpnnotes2
 # Setup VPN clients: https://git.io/vpnclients
+# IKEv2 guide:       https://git.io/ikev2docker
 
 # ================================================
 
