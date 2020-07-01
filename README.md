@@ -37,7 +37,9 @@ Get the trusted build from the [Docker Hub registry](https://hub.docker.com/r/hw
 docker pull hwdsl2/ipsec-vpn-server
 ```
 
-Alternatively, you may [build from source code](https://github.com/hwdsl2/docker-ipsec-vpn-server#build-from-source-code) on GitHub. Raspberry Pi users, see [here](https://github.com/hwdsl2/docker-ipsec-vpn-server#use-on-raspberry-pis).
+Supported platforms: `linux/amd64`, `linux/arm64` and `linux/arm/v7`.
+
+Alternatively, you may [build from source code](https://github.com/hwdsl2/docker-ipsec-vpn-server#build-from-source-code) on GitHub.
 
 ## How to use this image
 
@@ -164,7 +166,7 @@ If the Docker image is already up to date, you should see:
 Status: Image is up to date for hwdsl2/ipsec-vpn-server:latest
 ```
 
-Otherwise, it will download the latest version. To update your Docker container, first write down all your VPN login details (refer to "Retrieve VPN login details" above). Then remove the Docker container with `docker rm -f ipsec-vpn-server`. Finally, re-create it using instructions from the "How to use this image" section.
+Otherwise, it will download the latest version. To update your Docker container, first write down all your [VPN login details](https://github.com/hwdsl2/docker-ipsec-vpn-server#retrieve-vpn-login-details). Then remove the Docker container with `docker rm -f ipsec-vpn-server`. Finally, re-create it using instructions from [this section](https://github.com/hwdsl2/docker-ipsec-vpn-server#how-to-use-this-image).
 
 ## Advanced usage
 
@@ -176,10 +178,6 @@ Clients are set to use [Google Public DNS](https://developers.google.com/speed/p
 VPN_DNS_SRV1=1.1.1.1
 VPN_DNS_SRV2=1.0.0.1
 ```
-
-### Use on Raspberry Pis
-
-For use on Raspberry Pis (ARM architecture), you must first build this Docker image on your device using instructions from [Build from source code](https://github.com/hwdsl2/docker-ipsec-vpn-server#build-from-source-code), instead of pulling from Docker Hub. Then follow other instructions in this document. Similarly, this also applies to other architectures that are not `x86_64`.
 
 ### Configure and use IKEv2 VPN
 
@@ -200,7 +198,7 @@ Please follow these steps:
    docker rm -f ipsec-vpn-server
    ```
 
-1. Create a new Docker container (replace `./vpn.env` with your own `env` file).
+1. Create a new Docker container (replace `./vpn.env` with your own [env file](https://github.com/hwdsl2/docker-ipsec-vpn-server#how-to-use-this-image)).
 
    ```
    docker run \
@@ -234,7 +232,7 @@ Please follow these steps:
    wget https://git.io/ikev2setup -O ikev2.sh && bash ikev2.sh
    ```
 
-   **Note:** If you want to generate certificates for additional VPN clients, just run the helper script again.
+   **Note:** If you want to generate certificates for additional VPN clients, just run the helper script again. To revoke a client certificate, see [here](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/ikev2-howto.md#revoke-a-client-certificate).
 
 1. When finished, `exit` the container and continue to [configure IKEv2 VPN clients](https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/ikev2-howto.md#configure-ikev2-vpn-clients). To copy the generated `.p12` file to the current directory on the Docker host, you may use, e.g.:
 

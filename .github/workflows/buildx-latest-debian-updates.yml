@@ -1,0 +1,109 @@
+name: buildx latest on Debian updates
+
+on:
+  schedule:
+    - cron: '25 10,22 * * *'
+
+jobs:
+  check_update:
+    runs-on: ubuntu-latest
+    outputs:
+      debian_updated: ${{ steps.check.outputs.debian_updated }}
+    steps:
+      - name: Prepare
+        run: |
+          docker pull debian:buster-slim
+          docker pull hwdsl2/ipsec-vpn-server
+      - name: Check
+        id: check
+        if: success()
+        run: |
+          DEBIAN_UPDATED=false
+
+          debian_update_time=$(docker inspect --format='{{.Created}}' debian:buster-slim)
+          image_update_time=$(docker inspect --format='{{.Created}}' hwdsl2/ipsec-vpn-server)
+
+          if [ -n "$debian_update_time" ] && [ -n "$image_update_time" ]; then
+            debian_update_time_s=$(date -d "$debian_update_time" +%s)
+            image_update_time_s=$(date -d "$image_update_time" +%s)
+            current_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            current_time_s=$(date -d "$current_time" +%s)
+            diff_time_s=$((current_time_s - debian_update_time_s))
+
+            echo "Debian update time:     $debian_update_time"
+            echo "Debian update time (s): $debian_update_time_s"
+            echo "Image update time:      $image_update_time"
+            echo "Image update time (s):  $image_update_time_s"
+            echo "Current time:           $current_time"
+            echo "Current time (s):       $current_time_s"
+            echo "Time diff (cur-debian): $diff_time_s"
+
+            if [ -n "$debian_update_time_s" ] && [ -n "$image_update_time_s" ] \
+              && [ "$debian_update_time_s" -ge "$image_update_time_s" ] \
+              && [ "$diff_time_s" -ge 14400 ]; then
+              echo "Starting build..."
+              DEBIAN_UPDATED=true
+            else
+              echo "Not starting build."
+            fi
+          fi
+
+          echo ::set-output name=debian_updated::${DEBIAN_UPDATED}
+
+  buildx:
+    needs: check_update
+    if: needs.check_update.outputs.debian_updated == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Set up Buildx
+        if: success()
+        run: |
+          [ ! -x /usr/bin/docker ] && exit 1
+          if [ ! -x /usr/bin/wget ] || [ ! -x /usr/bin/jq ]; then
+            export DEBIAN_FRONTEND=noninteractive
+            sudo apt-get -yq update
+            sudo apt-get -yq install wget jq
+          fi
+
+          DOCKER_DIR="${HOME}/.docker/cli-plugins"
+          BUILDX_VER=$(wget -t 3 -T 30 -qO- "https://api.github.com/repos/docker/buildx/releases/latest" | jq -r ".tag_name")
+          [ -z "${BUILDX_VER}" ] && exit 1
+          echo "Buildx version: ${BUILDX_VER}"
+          BUILDX_URL="https://github.com/docker/buildx/releases/download/${BUILDX_VER}/buildx-${BUILDX_VER}.linux-amd64"
+
+          mkdir -p "${DOCKER_DIR}"
+          wget -t 3 -T 30 -nv -O "${DOCKER_DIR}/docker-buildx" "${BUILDX_URL}" || exit 1
+          chmod a+x "${DOCKER_DIR}/docker-buildx"
+
+          docker info
+          docker buildx version
+          docker pull -q multiarch/qemu-user-static
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes --credential yes
+          docker buildx create --name "builder-${GITHUB_SHA::8}" --driver docker-container --use
+          docker buildx inspect --bootstrap
+      - name: Docker Hub Login
+        if: success()
+        env:
+          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+        run: echo "$DOCKER_TOKEN" | docker login --username hwdsl2 --password-stdin 2>&1
+      - name: Docker Buildx (build and push)
+        if: success()
+        run: |
+          docker buildx build \
+            --progress plain \
+            --platform=linux/amd64,linux/arm64,linux/arm/v7 \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg VCS_REF=${GITHUB_SHA::8} \
+            --build-arg VERSION=latest \
+            -t hwdsl2/ipsec-vpn-server:latest \
+            --push \
+            .
+      - name: Clear
+        if: always()
+        run: |
+          shred -u "${HOME}/.docker/config.json"
+          rm -f "${HOME}/.docker/config.json"
+          docker buildx rm "builder-${GITHUB_SHA::8}" || true
